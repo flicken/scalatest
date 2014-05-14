@@ -66,6 +66,16 @@ import java.io.File
       assert(results.size === 1)
     }
 
+    test("tagged annotation on super class included") {
+      val results = run("org.scalatest.tools.test.TagsAnnotationExtendsTest", "-n org.scalatest.WeakAsAKitten")
+
+      assert(results.size === 1)
+
+      assert(results(0).testName === "assert bad")
+      assert(results(0).result === Result.Failure)
+      assert(results(0).error.getMessage === "1 did not equal 3")
+    }
+
     test("two tags included") {
       val results = run("org.scalatest.tools.test.TagsTest", Array("-n", "hello helloAgain"))
 
@@ -503,6 +513,13 @@ import java.io.File
         test(test.configMap)
       }
       test("get config"){ conf => assert(conf === Map("a" -> "z", "b" -> "y", "c" -> "x")) }
+    }
+
+    @org.scalatest.WeakAsAKitten
+    private class BaseKittenSuite extends FunSuite {
+    }
+    private class TagsAnnotationExtendsTest extends BaseKittenSuite {
+      test("assert bad") {assert(1 === 3)}
     }
 
     private class TagsTest extends FunSuite {
