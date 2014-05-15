@@ -67,7 +67,7 @@ import java.io.File
     }
 
     test("tagged annotation on super class included") {
-      val results = run("org.scalatest.tools.test.TagsAnnotationExtendsTest", "-n org.scalatest.WeakAsAKitten")
+      val results = run("org.scalatest.tools.test.TagsAnnotationExtendsTest", "-n org.scalatest.StrongAsSuperman")
 
       assert(results.size === 1)
 
@@ -515,7 +515,7 @@ import java.io.File
       test("get config"){ conf => assert(conf === Map("a" -> "z", "b" -> "y", "c" -> "x")) }
     }
 
-    @org.scalatest.WeakAsAKitten
+    @org.scalatest.StrongAsSuperman
     private class BaseKittenSuite extends FunSuite {
     }
     private class TagsAnnotationExtendsTest extends BaseKittenSuite {
