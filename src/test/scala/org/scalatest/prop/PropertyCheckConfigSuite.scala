@@ -40,18 +40,18 @@ class PropertyCheckConfigSuite extends FunSuite with Matchers {
 
   test("maxDiscarded throws IAE if less than 0") {
     intercept[IllegalArgumentException] {
-      PropertyCheckConfig(maxDiscarded = -1)
+      PropertyCheckConfig(maxDiscardedFactor = -1.0f)
     }
     intercept[IllegalArgumentException] {
-      PropertyCheckConfig(maxDiscarded = -2)
+      PropertyCheckConfig(maxDiscardedFactor = -2.0f)
     }
   }
 
   test("maxDiscarded value is passed value, if valid") {
-      PropertyCheckConfig(maxDiscarded = 0).maxDiscarded should be (0)
-      PropertyCheckConfig(maxDiscarded = 1).maxDiscarded should be (1)
-      PropertyCheckConfig(maxDiscarded = 2).maxDiscarded should be (2)
-      PropertyCheckConfig(maxDiscarded = 5678).maxDiscarded should be (5678)
+      PropertyCheckConfig(maxDiscardedFactor = 0.0f).maxDiscardedFactor should be (0.0f)
+      PropertyCheckConfig(maxDiscardedFactor = 1.0f).maxDiscardedFactor should be (1.0f)
+      PropertyCheckConfig(maxDiscardedFactor = 2.0f).maxDiscardedFactor should be (2.0f)
+      PropertyCheckConfig(maxDiscardedFactor = 56.78f).maxDiscardedFactor should be (56.78f)
   }
 
   test("minSize throws IAE if less than 0") {

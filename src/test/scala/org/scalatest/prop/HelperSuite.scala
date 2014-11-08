@@ -26,6 +26,9 @@ class HelperSuite extends FunSuite with Matchers {
   val DefaultMaxDiscarded = 99
   val PassedMaxDiscarded = 33
 
+  val DefaultMaxDiscardedFactor = 9.9f
+  val PassedMaxDiscardedFactor = 3.3f
+
   val DefaultMinSize = 99
   val PassedMinSize = 33
 
@@ -38,10 +41,10 @@ class HelperSuite extends FunSuite with Matchers {
   val defaultConfig =
     PropertyCheckConfig(
       minSuccessful = DefaultMinSuccessful,
-      maxDiscarded = DefaultMaxDiscarded,
       minSize = DefaultMinSize,
       maxSize = DefaultMaxSize,
-      workers = DefaultWorkers
+      workers = DefaultWorkers,
+      maxDiscardedFactor = DefaultMaxDiscardedFactor
     )
 
   // minSuccessful
@@ -66,19 +69,25 @@ class HelperSuite extends FunSuite with Matchers {
 
   // maxDiscarded
   test("getParams returns passed maxDiscarded config param") {
-    val params = getParams(Seq(MaxDiscarded(PassedMaxDiscarded)), defaultConfig)
-    params.maxDiscardRatio should equal (maxDiscardRatio(PassedMaxDiscarded + 1, params.minSuccessfulTests))
+    val params = getParams(Seq(MaxDiscardedFactor(PassedMaxDiscardedFactor)), defaultConfig)
+    params.maxDiscardRatio should equal (PassedMaxDiscardedFactor)
   }
 
-  test("getParams throws IAE if passed multiple maxDiscarded config params") {
+  test("getParams throws IAE if passed multiple maxDiscardedFactor or maxDiscarded config params") {
+    intercept[IllegalArgumentException] {
+      getParams(Seq(MaxDiscardedFactor(3.3f), MaxDiscardedFactor(3.4f)), defaultConfig)
+    }
+    intercept[IllegalArgumentException] {
+      getParams(Seq(MaxDiscardedFactor(3.3f), MaxDiscarded(34)), defaultConfig)
+    }
     intercept[IllegalArgumentException] {
       getParams(Seq(MaxDiscarded(33), MaxDiscarded(34)), defaultConfig)
     }
   }
 
-  test("getParams returns default maxDiscarded config param if none passed") {
+  test("getParams returns default maxDiscardedFactor config param if none passed") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful)), defaultConfig)
-    params.maxDiscardRatio should equal (maxDiscardRatio(DefaultMaxDiscarded + 1, params.minSuccessfulTests))
+    params.maxDiscardRatio should equal (DefaultMaxDiscardedFactor)
   }
 
   // minSize
@@ -135,16 +144,16 @@ class HelperSuite extends FunSuite with Matchers {
   test("getParams returns all default if no config params passed") {
     val params = getParams(Seq(), defaultConfig)
     params.minSuccessfulTests should equal (DefaultMinSuccessful)
-    params.maxDiscardRatio should equal (maxDiscardRatio(DefaultMaxDiscarded + 1, params.minSuccessfulTests))
+    params.maxDiscardRatio should equal (DefaultMaxDiscardedFactor)
     params.minSize should equal (DefaultMinSize)
     params.maxSize should equal (DefaultMaxSize)
     params.workers should equal (DefaultWorkers)
   }
 
   test("getParams returns all passed if all config params passed") {
-    val params = getParams(Seq(MinSuccessful(PassedMinSuccessful), MaxDiscarded(PassedMaxDiscarded), MinSize(PassedMinSize), MaxSize(PassedMaxSize), Workers(PassedWorkers)), defaultConfig)
+    val params = getParams(Seq(MinSuccessful(PassedMinSuccessful), MinSize(PassedMinSize), MaxSize(PassedMaxSize), Workers(PassedWorkers), MaxDiscardedFactor(PassedMaxDiscardedFactor)), defaultConfig)
     params.minSuccessfulTests should equal (PassedMinSuccessful)
-    params.maxDiscardRatio should equal (maxDiscardRatio(PassedMaxDiscarded + 1, params.minSuccessfulTests))
+    params.maxDiscardRatio should equal (PassedMaxDiscardedFactor)
     params.minSize should equal (PassedMinSize)
     params.maxSize should equal (PassedMaxSize)
     params.workers should equal (PassedWorkers)

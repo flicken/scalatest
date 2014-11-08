@@ -46,10 +46,10 @@ trait Configuration {
    * </tr>
    * <tr>
    * <td style="border-width: 1px; padding: 3px; border: 1px solid black; text-align: center">
-   * maxDiscarded
+   * maxDiscardedFactor
    * </td>
    * <td style="border-width: 1px; padding: 3px; border: 1px solid black; text-align: center">
-   * 500
+   * 5.0
    * </td>
    * </tr>
    * <tr>
@@ -79,7 +79,7 @@ trait Configuration {
    * </table>
    *
    * @param minSuccessful the minimum number of successful property evaluations required for the property to pass.
-   * @param maxDiscarded the maximum number of discarded property evaluations allowed during a property check
+   * @param maxDiscardedFactor specifies the ratio of discarded property evaluations allowed during a property check as a factor of <code>minSuccessful</code>
    * @param minSize the minimum size parameter to provide to ScalaCheck, which it will use when generating objects for which size matters (such as strings or lists).
    * @param maxSize the maximum size parameter to provide to ScalaCheck, which it will use when generating objects for which size matters (such as strings or lists).
    * @param workers specifies the number of worker threads to use during property evaluation
@@ -94,18 +94,73 @@ trait Configuration {
    */
   case class PropertyCheckConfig(
     minSuccessful: Int = 100,
-    maxDiscarded: Int = 500,
+    maxDiscardedFactor: Float = 5,
     minSize: Int = 0,
     maxSize: Int = 100,
     workers: Int = 1
   ) {
     require(minSuccessful > 0, "minSuccessful had value " + minSuccessful + ", but must be greater than zero")
-    require(maxDiscarded >= 0, "maxDiscarded had value " + maxDiscarded + ", but must be greater than or equal to zero")
+    require(maxDiscardedFactor >= 0, "maxDiscardedFactor had value " + maxDiscardedFactor + ", but must be greater than or equal to zero")
     require(minSize >= 0, "minSize had value " + minSize + ", but must be greater than or equal to zero")
     require(maxSize >= 0, "maxSize had value " + maxSize + ", but must be greater than or equal to zero")
     require(minSize <= maxSize, "minSize had value " + minSize + ", which must be less than or equal to maxSize, which had value " + maxSize)
     require(workers > 0, "workers had value " + workers + ", but must be greater than zero")
+
+    @deprecated("Use maxDiscardedFactor instead, replacing using formula <code>(maxDiscarded + 1) / minSuccessful</code>")
+    def maxDiscarded = minSuccessful * maxDiscardedFactor
+
+   @deprecated
+   def this(minSuccessful: Int,
+             maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int,
+             minSize: Int,
+             maxSize: Int,
+             workers: Int) =
+      this(minSuccessful,
+      PropertyCheckConfig.calculateMaxDiscardedFactor(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead),
+      minSize,
+      maxSize,
+      workers)
+   @deprecated
+   def this(minSuccessful: Int,
+             maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int,
+             minSize: Int,
+             maxSize: Int) =
+      this(minSuccessful,
+      PropertyCheckConfig.calculateMaxDiscardedFactor(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead),
+      minSize,
+      maxSize)
+   @deprecated
+   def this(minSuccessful: Int,
+             maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int,
+             minSize: Int) =
+      this(minSuccessful,
+      PropertyCheckConfig.calculateMaxDiscardedFactor(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead),
+      minSize)
+   @deprecated
+   def this(minSuccessful: Int,
+             maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int) =
+      this(minSuccessful,
+      PropertyCheckConfig.calculateMaxDiscardedFactor(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead))
   }
+
+  object PropertyCheckConfig {
+    private[scalatest] def calculateMaxDiscardedFactor(minSuccessful: Int, maxDiscarded: Int): Float = ((maxDiscarded + 1): Float) / (minSuccessful: Float)
+    @deprecated def apply(minSuccessful: Int,
+               maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int,
+               minSize: Int,
+               maxSize: Int,
+               workers: Int) = new PropertyCheckConfig(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead, minSize, maxSize, workers)
+    @deprecated def apply(minSuccessful: Int,
+               maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int,
+               minSize: Int,
+               maxSize: Int) = new PropertyCheckConfig(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead, minSize, maxSize)
+    @deprecated def apply(minSuccessful: Int,
+               maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int,
+               minSize: Int) = new PropertyCheckConfig(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead, minSize)
+    @deprecated def apply(minSuccessful: Int,
+               maxDiscardedDeprecatedUseMaxDiscardedFactorInstead: Int) = new PropertyCheckConfig(minSuccessful, maxDiscardedDeprecatedUseMaxDiscardedFactorInstead)
+  }
+
 
   /**
    * Abstract class defining a family of configuration parameters for property checks.
@@ -131,7 +186,59 @@ trait Configuration {
   case class MinSuccessful(value: Int) extends PropertyCheckConfigParam {
     require(value > 0)
   }
-  
+
+  /**
+   * A <code>PropertyCheckConfigParam</code> that specifies the maximum number of discarded
+   * property evaluations allowed during property evaluation.
+   *
+   * <p>
+   * In <code>GeneratorDrivenPropertyChecks</code>, a property evaluation is discarded if it throws
+   * <code>DiscardedEvaluationException</code>, which is produce by <code>whenever</code> clause that
+   * evaluates to false. For example, consider this ScalaTest property check:
+   * </p>
+   *
+   * <pre class="stHighlight">
+   * // forAll defined in <code>GeneratorDrivenPropertyChecks</code>
+   * forAll { (n: Int) =>
+   *   whenever (n > 0) {
+   *     doubleIt(n) should equal (n * 2)
+   *   }
+   * }
+   *
+   * </pre>
+   *
+   * <p>
+   * In the above code, whenever a non-positive <code>n</code> is passed, the property function will complete abruptly
+   * with <code>DiscardedEvaluationException</code>.
+   * </p>
+   *
+   * <p>
+   * Similarly, in <code>Checkers</code>, a property evaluation is discarded if the expression to the left
+   * of ScalaCheck's <code>==></code> operator is false. Here's an example:
+   * </p>
+   *
+   * <pre class="stHighlight">
+   * // forAll defined in <code>Checkers</code>
+   * forAll { (n: Int) =>
+   *   (n > 0) ==> doubleIt(n) == (n * 2)
+   * }
+   *
+   * </pre>
+   *
+   * <p>
+   * For either kind of property check, <code>MaxDiscarded</code> indicates the maximum number of discarded
+   * evaluations that will be allowed. As soon as one past this number of evaluations indicates it needs to be discarded,
+   * the property check will fail.
+   * </p>
+   *
+   * @throws IllegalArgumentException if specified <code>value</code> is less than zero.
+   *
+   * @author Bill Venners
+   */
+  @deprecated case class MaxDiscarded(value: Int) extends PropertyCheckConfigParam {
+    require(value >= 0)
+  }
+
   /**
    * A <code>PropertyCheckConfigParam</code> that specifies the maximum number of discarded
    * property evaluations allowed during property evaluation.
@@ -171,17 +278,17 @@ trait Configuration {
    * </pre>
    *
    * <p>
-   * For either kind of property check, <code>MaxDiscarded</code> indicates the maximum number of discarded 
-   * evaluations that will be allowed. As soon as one past this number of evaluations indicates it needs to be discarded,
-   * the property check will fail.
+   * For either kind of property check, <code>MaxDiscardedFactor</code> indicates the maximum ratio of discarded
+   * evaluations that will be allowed. After at least <code>MinSuccessful</code> checks have been run, and more than
+   * this ratio of evaluations indicates it needs to be discarded, the property check will fail.
    * </p>
    *
    * @throws IllegalArgumentException if specified <code>value</code> is less than zero.
    *
    * @author Bill Venners
    */
-  case class MaxDiscarded(value: Int) extends PropertyCheckConfigParam {
-    require(value >= 0)
+  case class MaxDiscardedFactor(value: Float) extends PropertyCheckConfigParam {
+    require(value >= 0.0)
   }
   
   /**
@@ -243,7 +350,15 @@ trait Configuration {
    *
    * @throws IllegalArgumentException if specified <code>value</code> is less than zero.
    */
-  def maxDiscarded(value: Int): MaxDiscarded = new MaxDiscarded(value)
+  @deprecated("use maxDiscardedFactor instead") def maxDiscarded(value: Int): MaxDiscarded = new MaxDiscarded(value)
+
+  /**
+   * Returns a <code>MaxDiscardedRatio</code> property check configuration parameter containing the passed value, which specifies the maximum number of discarded
+   * property evaluations allowed during property evaluation.
+   *
+   * @throws IllegalArgumentException if specified <code>value</code> is less than zero.
+   */
+  def maxDiscardedFactor(value: Float): MaxDiscardedFactor = new MaxDiscardedFactor(value)
 
   /**
    * Returns a <code>MinSize</code> property check configuration parameter containing the passed value, which specifies the minimum size parameter to
@@ -285,11 +400,13 @@ trait Configuration {
 
     var minSuccessful = -1
     var maxDiscarded = -1
+    var maxDiscardedFactor = -1.0f
     var pminSize = -1
     var pmaxSize = -1
     var pworkers = -1
 
     var minSuccessfulTotalFound = 0
+    var maxDiscardedFactorTotalFound = 0
     var maxDiscardedTotalFound = 0
     var minSizeTotalFound = 0
     var maxSizeTotalFound = 0
@@ -300,6 +417,9 @@ trait Configuration {
         case param: MinSuccessful =>
           minSuccessful = param.value
           minSuccessfulTotalFound += 1
+        case param: MaxDiscardedFactor =>
+          maxDiscardedFactor = param.value
+          maxDiscardedFactorTotalFound += 1
         case param: MaxDiscarded =>
           maxDiscarded = param.value
           maxDiscardedTotalFound += 1
@@ -317,8 +437,9 @@ trait Configuration {
   
     if (minSuccessfulTotalFound > 1)
       throw new IllegalArgumentException("can pass at most one MinSuccessful config parameters, but " + minSuccessfulTotalFound + " were passed")
-    if (maxDiscardedTotalFound > 1)
-      throw new IllegalArgumentException("can pass at most one MaxDiscarded config parameters, but " + maxDiscardedTotalFound + " were passed")
+    val maxDiscardedAllTotalFound = maxDiscardedFactorTotalFound + maxDiscardedTotalFound
+    if (maxDiscardedAllTotalFound > 1)
+      throw new IllegalArgumentException("can pass at most one MaxDiscardedFactor or MaxDiscarded (deprecated) config parameters, but " + maxDiscardedAllTotalFound + " were passed")
     if (minSizeTotalFound > 1)
       throw new IllegalArgumentException("can pass at most one MinSize config parameters, but " + minSizeTotalFound + " were passed")
     if (maxSizeTotalFound > 1)
@@ -347,10 +468,14 @@ trait Configuration {
       val testCallback: TestCallback = new TestCallback {}
 
       val maxDiscardRatio: Float = {
-        val maxDiscardedTests = (if (maxDiscarded != -1) maxDiscarded else config.maxDiscarded) + 1
-
-        if (maxDiscardedTests < 0) Parameters.default.maxDiscardRatio
-        else (maxDiscardedTests: Float)/(minSuccessfulTests: Float)
+        if (maxDiscardedFactor >= 0) {
+          maxDiscardedFactor
+        } else if (maxDiscarded != -1) {
+          if (maxDiscarded < 0) Parameters.default.maxDiscardRatio
+          else PropertyCheckConfig.calculateMaxDiscardedFactor(minSuccessfulTests, maxDiscarded)
+       } else {
+         config.maxDiscardedFactor
+       }
       }
 
       val customClassLoader: Option[ClassLoader] = None
