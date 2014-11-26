@@ -117,12 +117,14 @@ trait Configuration {
    */
   implicit def PropertyCheckConfig2PropertyCheckConfiguration(p: PropertyCheckConfig): PropertyCheckConfiguration = {
     val maxDiscardedFactor = PropertyCheckConfiguration.calculateMaxDiscardedFactor(p.minSuccessful, p.maxDiscarded)
-    PropertyCheckConfiguration(
+    new PropertyCheckConfiguration(
       minSuccessful = PosInt.from(p.minSuccessful).get,
       maxDiscardedFactor = PozDouble.from(maxDiscardedFactor).get,
       minSize = PozInt.from(p.minSize).get,
       sizeRange = PozInt.from(p.maxSize - p.minSize).get,
-      workers = PosInt.from(p.workers).get)
+      workers = PosInt.from(p.workers).get) with HasMaxDiscarded {
+      def maxDiscarded = p.maxDiscarded
+    }
   }
 
   case class PropertyCheckConfiguration(minSuccessful: PosInt = 100,
@@ -134,6 +136,11 @@ trait Configuration {
   object PropertyCheckConfiguration {
     private[scalatest] def calculateMaxDiscardedFactor(minSuccessful: Int, maxDiscarded: Int): Double =
       ((maxDiscarded + 1): Double) / (minSuccessful: Double)
+  }
+
+  @deprecated("transitional trait to ensure upgrade compatibility when mixing PropertyCheckConfig and minSuccessful parameters")
+  private trait HasMaxDiscarded {
+    def maxDiscarded: Int
   }
 
   /**
@@ -383,7 +390,14 @@ trait Configuration {
       val testCallback: TestCallback = new TestCallback {}
 
       val maxDiscardRatio: Float = {
-        if (maxDiscardedFactor >= 0) {
+        val useDeprecatedMaxDiscardedValue = config.isInstanceOf[HasMaxDiscarded] &&
+            minSuccessfulTotalFound == 1 &&
+            maxDiscardedFactorTotalFound == 0 &&
+            maxDiscardedTotalFound == 0
+
+        if (useDeprecatedMaxDiscardedValue) {
+          PropertyCheckConfiguration.calculateMaxDiscardedFactor(minSuccessfulTests, config.asInstanceOf[HasMaxDiscarded].maxDiscarded).toFloat
+        } else if (maxDiscardedFactor >= 0) {
           maxDiscardedFactor.toFloat
         } else if (maxDiscarded != -1) {
           if (maxDiscarded < 0) Parameters.default.maxDiscardRatio
