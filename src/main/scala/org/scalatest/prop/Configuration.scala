@@ -160,13 +160,9 @@ trait Configuration {
    * A <code>PropertyCheckConfigParam</code> that specifies the minimum number of successful
    * property evaluations required for the property to pass.
    *
-   * @throws IllegalArgumentException if specified <code>value</code> is less than or equal to zero.
-   *
    * @author Bill Venners
    */
-  case class MinSuccessful(value: Int) extends PropertyCheckConfigParam {
-    require(value > 0)
-  }
+  case class MinSuccessful(value: PosInt) extends PropertyCheckConfigParam
   
   /**
    * A <code>PropertyCheckConfigParam</code> that specifies the maximum number of discarded
@@ -227,13 +223,9 @@ trait Configuration {
    * provide to ScalaCheck, which it will use when generating objects for which size matters (such as
    * strings or lists).
    *
-   * @throws IllegalArgumentException if specified <code>value</code> is less than zero.
-   *
    * @author Bill Venners
    */
-  case class MinSize(value: Int) extends PropertyCheckConfigParam {
-    require(value >= 0)
-  }
+  case class MinSize(value: PozInt) extends PropertyCheckConfigParam
   
   /**
    * A <code>PropertyCheckConfigParam</code> that specifies the maximum size parameter to
@@ -278,9 +270,7 @@ trait Configuration {
    *
    * @author Bill Venners
    */
-  case class Workers(value: Int) extends PropertyCheckConfigParam {
-    require(value > 0)
-  }
+  case class Workers(value: PosInt) extends PropertyCheckConfigParam
   
   /**
    * Returns a <code>MinSuccessful</code> property check configuration parameter containing the passed value, which specifies the minimum number of successful
@@ -288,7 +278,7 @@ trait Configuration {
    *
    * @throws IllegalArgumentException if specified <code>value</code> is less than or equal to zero.
    */
-  def minSuccessful(value: Int): MinSuccessful = new MinSuccessful(value)
+  def minSuccessful(value: PosInt): MinSuccessful = new MinSuccessful(value)
 
   /**
    * Returns a <code>MaxDiscarded</code> property check configuration parameter containing the passed value, which specifies the maximum number of discarded
@@ -313,7 +303,7 @@ trait Configuration {
    *
    * @throws IllegalArgumentException if specified <code>value</code> is less than zero.
    */
-  def minSize(value: Int): MinSize = new MinSize(value)
+  def minSize(value: PozInt): MinSize = new MinSize(value)
 
   /**
    * Returns a <code>MaxSize</code> property check configuration parameter containing the passed value, which specifies the maximum size parameter to
@@ -351,7 +341,7 @@ trait Configuration {
    *
    * @throws IllegalArgumentException if specified <code>value</code> is less than or equal to zero.
    */
-  def workers(value: Int): Workers = new Workers(value)
+  def workers(value: PosInt): Workers = new Workers(value)
 
   private[prop] def getParams(
     configParams: Seq[PropertyCheckConfigParam],

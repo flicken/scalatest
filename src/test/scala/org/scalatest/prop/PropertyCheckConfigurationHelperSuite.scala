@@ -48,7 +48,7 @@ class PropertyCheckConfigurationHelperSuite extends FunSuite with Matchers {
 
   // minSuccessful
   test("getParams returns passed minSuccessful config param") {
-    val params = getParams(Seq(MinSuccessful(PassedMinSuccessful.value)), defaultConfig)
+    val params = getParams(Seq(MinSuccessful(PassedMinSuccessful)), defaultConfig)
     params.minSuccessfulTests should equal (PassedMinSuccessful.value)
   }
 
@@ -59,7 +59,7 @@ class PropertyCheckConfigurationHelperSuite extends FunSuite with Matchers {
   }
 
   test("getParams returns default minSuccessful config param if none passed") {
-    val params = getParams(Seq(Workers(DefaultWorkers.value)), defaultConfig)
+    val params = getParams(Seq(Workers(DefaultWorkers)), defaultConfig)
     params.minSuccessfulTests should equal (DefaultMinSuccessful.value)
   }
 

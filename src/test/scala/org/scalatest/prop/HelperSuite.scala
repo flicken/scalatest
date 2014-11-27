@@ -16,24 +16,26 @@
 package org.scalatest
 package prop
 
+import org.scalactic.anyvals._
+
 class HelperSuite extends FunSuite with Matchers {
 
   import Configuration._
 
-  val DefaultMinSuccessful = 9
-  val PassedMinSuccessful = 3
+  val DefaultMinSuccessful: PosInt = 9
+  val PassedMinSuccessful: PosInt = 3
 
   val DefaultMaxDiscarded = 99
   val PassedMaxDiscarded = 33
 
-  val DefaultMinSize = 99
-  val PassedMinSize = 33
+  val DefaultMinSize: PozInt = 99
+  val PassedMinSize: PozInt = 33
 
   val DefaultMaxSize = 99
   val PassedMaxSize = 33
 
-  val DefaultWorkers = 99
-  val PassedWorkers = 33
+  val DefaultWorkers: PosInt = 99
+  val PassedWorkers: PosInt = 33
 
   val defaultConfig =
     PropertyCheckConfig(
@@ -47,7 +49,7 @@ class HelperSuite extends FunSuite with Matchers {
   // minSuccessful
   test("getParams returns passed minSuccessful config param") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful)), defaultConfig)
-    params.minSuccessfulTests should equal (PassedMinSuccessful)
+    params.minSuccessfulTests should equal (PassedMinSuccessful.value)
   }
 
   test("getParams throws IAE if passed multiple minSuccessful config params") {
@@ -58,7 +60,7 @@ class HelperSuite extends FunSuite with Matchers {
 
   test("getParams returns default minSuccessful config param if none passed") {
     val params = getParams(Seq(MaxDiscarded(PassedMaxDiscarded)), defaultConfig)
-    params.minSuccessfulTests should equal (DefaultMinSuccessful)
+    params.minSuccessfulTests should equal (DefaultMinSuccessful.value)
   }
 
   def maxDiscardRatio(maxDiscardedTests: Int, minSuccessfulTests: Int): Float =
@@ -84,7 +86,7 @@ class HelperSuite extends FunSuite with Matchers {
   // minSize
   test("getParams returns passed minSize config param") {
     val params = getParams(Seq(MinSize(PassedMinSize)), defaultConfig)
-    params.minSize should equal (PassedMinSize)
+    params.minSize should equal (PassedMinSize.value)
   }
 
   test("getParams throws IAE if passed multiple minSize config params") {
@@ -95,7 +97,7 @@ class HelperSuite extends FunSuite with Matchers {
 
   test("getParams returns default minSize config param if none passed") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful)), defaultConfig)
-    params.minSize should equal (DefaultMinSize)
+    params.minSize should equal (DefaultMinSize.value)
   }
 
   // maxSize
@@ -118,7 +120,7 @@ class HelperSuite extends FunSuite with Matchers {
   // workers
   test("getParams returns passed workers config param") {
     val params = getParams(Seq(Workers(PassedWorkers)), defaultConfig)
-    params.workers should equal (PassedWorkers)
+    params.workers should equal (PassedWorkers.value)
   }
 
   test("getParams throws IAE if passed multiple workers config params") {
@@ -129,24 +131,24 @@ class HelperSuite extends FunSuite with Matchers {
 
   test("getParams returns default workers config param if none passed") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful)), defaultConfig)
-    params.workers should equal (DefaultWorkers)
+    params.workers should equal (DefaultWorkers.value)
   }
 
   test("getParams returns all default if no config params passed") {
     val params = getParams(Seq(), defaultConfig)
-    params.minSuccessfulTests should equal (DefaultMinSuccessful)
+    params.minSuccessfulTests should equal (DefaultMinSuccessful.value)
     params.maxDiscardRatio should equal (maxDiscardRatio(DefaultMaxDiscarded + 1, params.minSuccessfulTests))
-    params.minSize should equal (DefaultMinSize)
+    params.minSize should equal (DefaultMinSize.value)
     params.maxSize should equal (DefaultMaxSize)
-    params.workers should equal (DefaultWorkers)
+    params.workers should equal (DefaultWorkers.value)
   }
 
   test("getParams returns all passed if all config params passed") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful), MaxDiscarded(PassedMaxDiscarded), MinSize(PassedMinSize), MaxSize(PassedMaxSize), Workers(PassedWorkers)), defaultConfig)
-    params.minSuccessfulTests should equal (PassedMinSuccessful)
+    params.minSuccessfulTests should equal (PassedMinSuccessful.value)
     params.maxDiscardRatio should equal (maxDiscardRatio(PassedMaxDiscarded + 1, params.minSuccessfulTests))
-    params.minSize should equal (PassedMinSize)
+    params.minSize should equal (PassedMinSize.value)
     params.maxSize should equal (PassedMaxSize)
-    params.workers should equal (PassedWorkers)
+    params.workers should equal (PassedWorkers.value)
   }
 }
