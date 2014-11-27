@@ -251,9 +251,24 @@ trait Configuration {
    *
    * @author Bill Venners
    */
+  @deprecated("use SizeRange instead")
   case class MaxSize(value: Int) extends PropertyCheckConfigParam {
     require(value >= 0)
   }
+
+  /**
+   * A <code>PropertyCheckConfigParam</code> that (with minSize) specifies the maximum size parameter to
+   * provide to ScalaCheck, which it will use when generating objects for which size matters (such as
+   * strings or lists).
+   *
+   * <p>
+   * Note that the size range is added to minSize in order to calculate the maximum size passed to ScalaCheck.
+   * Using a range allows compile-time checking of a non-negative number being specified.
+   * </p>
+   *
+   * @author Bill Venners
+   */
+  case class SizeRange(value: PozInt) extends PropertyCheckConfigParam
 
   /**
    * A <code>PropertyCheckConfigParam</code> that specifies the number of worker threads
@@ -314,7 +329,21 @@ trait Configuration {
    * 
    * @throws IllegalArgumentException if specified <code>value</code> is less than zero.
    */
-  def maxSize(value: Int): MaxSize = new MaxSize(value)
+  @deprecated("use SizeRange instead") def maxSize(value: Int): MaxSize = new MaxSize(value)
+
+  /**
+   * Returns a <code>SizeRange</code> property check configuration parameter containing the passed value, that (with minSize) specifies the maximum size parameter to
+   * provide to ScalaCheck, which it will use when generating objects for which size matters (such as
+   * strings or lists).
+   *
+   * <p>
+   * Note that the size range is added to minSize in order to calculate the maximum size passed to ScalaCheck.
+   * Using a range allows compile-time checking of a non-negative number being specified.
+   * </p>
+   *
+   * @author Bill Venners
+   */
+  def sizeRange(value: PozInt): SizeRange = SizeRange(value)
 
   /**
    * Returns a <code>Workers</code> property check configuration parameter containing the passed value, which specifies the number of worker threads

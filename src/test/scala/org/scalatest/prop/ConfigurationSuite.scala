@@ -99,6 +99,18 @@ class ConfigurationSuite extends FunSuite with Matchers {
       maxSize(5678).value should be (5678)
   }
 
+  test("sizeRange throws IAE if less than 0") {
+    "sizeRange(-1)" shouldNot compile
+    "sizeRange(-2)" shouldNot compile
+  }
+
+  test("sizeRange value is passed value, if valid") {
+      sizeRange(0).value.value should be (0)
+      sizeRange(1).value.value should be (1)
+      sizeRange(2).value.value should be (2)
+      sizeRange(5678).value.value should be (5678)
+  }
+
   test("workers throws IAE if less than 1") {
     intercept[IllegalArgumentException] {
       workers(0)

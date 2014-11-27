@@ -104,6 +104,19 @@ class PropertyCheckConfigParamSuite extends FunSuite with Matchers {
       MaxSize(5678).value should be (5678)
   }
 
+  test("sizeRange does not compile if less than 0") {
+    "SizeRange(-1)" shouldNot compile
+    "SizeRange(-2)" shouldNot compile
+  }
+
+  test("sizeRange value is passed value, if valid") {
+      SizeRange(0).value.value should be (0)
+      SizeRange(1).value.value should be (1)
+      SizeRange(2).value.value should be (2)
+      SizeRange(5678).value.value should be (5678)
+  }
+
+  
   test("workers throws IAE if less than 1") {
     intercept[IllegalArgumentException] {
       Workers(0)
