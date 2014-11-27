@@ -368,8 +368,9 @@ trait Configuration {
   
     if (minSuccessfulTotalFound > 1)
       throw new IllegalArgumentException("can pass at most one MinSuccessful config parameters, but " + minSuccessfulTotalFound + " were passed")
-    if (maxDiscardedTotalFound > 1)
-      throw new IllegalArgumentException("can pass at most one MaxDiscarded config parameters, but " + maxDiscardedTotalFound + " were passed")
+    val maxDiscardedAndFactorTotalFound = maxDiscardedTotalFound + maxDiscardedFactorTotalFound
+    if (maxDiscardedAndFactorTotalFound > 1)
+      throw new IllegalArgumentException("can pass at most one MaxDiscarded or MaxDiscardedFactor config parameters, but " + maxDiscardedAndFactorTotalFound + " were passed")
     if (minSizeTotalFound > 1)
       throw new IllegalArgumentException("can pass at most one MinSize config parameters, but " + minSizeTotalFound + " were passed")
     if (maxSizeTotalFound > 1)
@@ -400,8 +401,7 @@ trait Configuration {
       val maxDiscardRatio: Float = {
         val useDeprecatedMaxDiscardedValue = config.isInstanceOf[HasMaxDiscarded] &&
             minSuccessfulTotalFound == 1 &&
-            maxDiscardedFactorTotalFound == 0 &&
-            maxDiscardedTotalFound == 0
+          maxDiscardedAndFactorTotalFound == 0
 
         if (useDeprecatedMaxDiscardedValue) {
           PropertyCheckConfiguration.calculateMaxDiscardedFactor(minSuccessfulTests, config.asInstanceOf[HasMaxDiscarded].maxDiscarded).toFloat
