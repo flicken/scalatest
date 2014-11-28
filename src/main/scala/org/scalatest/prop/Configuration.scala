@@ -127,11 +127,12 @@ trait Configuration {
     }
   }
 
-  case class PropertyCheckConfiguration(minSuccessful: PosInt = 100,
-                                        maxDiscardedFactor: PozDouble = 5.0,
-                                        minSize: PozInt = 0,
-                                        sizeRange: PozInt = 100,
-                                        workers: PosInt = 1)
+  // Note: Using PosX.from factory methods, because "you cannot use macro implementations in the same compilation run that defines them".  If scalactic were in a separate compile, this would go away.
+  case class PropertyCheckConfiguration(minSuccessful: PosInt = PosInt.from(100).get,
+                                        maxDiscardedFactor: PozDouble = PozDouble.from(5.0).get,
+                                        minSize: PozInt = PozInt.from(0).get,
+                                        sizeRange: PozInt = PozInt.from(100).get,
+                                        workers: PosInt = PosInt.from(1).get)
 
   object PropertyCheckConfiguration {
     private[scalatest] def calculateMaxDiscardedFactor(minSuccessful: Int, maxDiscarded: Int): Double =
