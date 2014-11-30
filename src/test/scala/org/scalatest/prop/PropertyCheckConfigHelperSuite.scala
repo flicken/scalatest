@@ -18,7 +18,8 @@ package prop
 
 import org.scalactic.anyvals._
 
-class HelperSuite extends FunSuite with Matchers {
+@deprecated("Remove when removing PropertyCheckConfig")
+class PropertyCheckConfigHelperSuite extends FunSuite with Matchers {
 
   import Configuration._
 
@@ -115,6 +116,13 @@ class HelperSuite extends FunSuite with Matchers {
   test("getParams returns default maxSize config param if none passed") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful)), defaultConfig)
     params.maxSize should equal (DefaultMaxSize)
+  }
+
+  test("getParams returns default maxSize config param if none passed and MinSuccessful changed") {
+    val params = getParams(Seq(MinSize(PassedMinSize)), defaultConfig)
+    println("Params.maxsize: " + params.maxSize)
+    params.maxSize should equal (DefaultMaxSize)
+    params.minSize should equal (PassedMinSize.value)
   }
 
   // workers

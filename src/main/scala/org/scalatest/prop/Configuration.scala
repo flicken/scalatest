@@ -123,6 +123,8 @@ trait Configuration {
       minSize = PozInt.from(p.minSize).get,
       sizeRange = PozInt.from(p.maxSize - p.minSize).get,
       workers = PosInt.from(p.workers).get) with HasMaxDiscarded {
+      override private [scalatest]  val legacyMaxDiscarded = Some(p.maxDiscarded)
+      override private [scalatest]  val legacyMaxSize      = Some(p.maxSize)
       def maxDiscarded = p.maxDiscarded
     }
   }
@@ -132,7 +134,12 @@ trait Configuration {
                                         maxDiscardedFactor: PozDouble = PozDouble.from(5.0).get,
                                         minSize: PozInt = PozInt.from(0).get,
                                         sizeRange: PozInt = PozInt.from(100).get,
-                                        workers: PosInt = PosInt.from(1).get)
+                                        workers: PosInt = PosInt.from(1).get) {
+    @deprecated("Transitional value to ensure upgrade compatibility when mixing PropertyCheckConfig and minSuccessful parameters.  Remove with PropertyCheckConfig class")
+    private [scalatest] val legacyMaxDiscarded: Option[Int] = None
+    @deprecated("Transitional value to ensure upgrade compatibility when mixing PropertyCheckConfig and minSize parameters.  Remove with PropertyCheckConfig class")
+    private [scalatest] val legacyMaxSize: Option[Int] = None
+  }
 
   object PropertyCheckConfiguration {
     private[scalatest] def calculateMaxDiscardedFactor(minSuccessful: Int, maxDiscarded: Int): Double =
@@ -349,39 +356,44 @@ trait Configuration {
     config: PropertyCheckConfiguration
   ): Parameters = {
 
-    var minSuccessful = -1
-    var maxDiscarded = -1
-    var maxDiscardedFactor = -1.0
-    var pminSize = -1
-    var pmaxSize = -1
-    var pworkers = -1
+    var minSuccessful: Option[Int] = None
+    var maxDiscarded: Option[Int] = None
+    var maxDiscardedFactor: Option[Double] = None
+    var pminSize: Option[Int] = None
+    var psizeRange: Option[Int] = None
+    var pmaxSize: Option[Int] = None
+    var pworkers: Option[Int] = None
 
     var minSuccessfulTotalFound = 0
     var maxDiscardedTotalFound = 0
     var maxDiscardedFactorTotalFound = 0
     var minSizeTotalFound = 0
+    var sizeRangeTotalFound = 0
     var maxSizeTotalFound = 0
     var workersTotalFound = 0
 
     for (configParam <- configParams) {
       configParam match {
         case param: MinSuccessful =>
-          minSuccessful = param.value
+          minSuccessful = Some(param.value)
           minSuccessfulTotalFound += 1
         case param: MaxDiscarded =>
-          maxDiscarded = param.value
+          maxDiscarded = Some(param.value)
           maxDiscardedTotalFound += 1
         case param: MaxDiscardedFactor =>
-          maxDiscardedFactor = param.value
+          maxDiscardedFactor = Some(param.value)
           maxDiscardedFactorTotalFound += 1
         case param: MinSize =>
-          pminSize = param.value
+          pminSize = Some(param.value)
           minSizeTotalFound += 1
+        case param: SizeRange =>
+          psizeRange = Some(param.value)
+          sizeRangeTotalFound += 1
         case param: MaxSize =>
-          pmaxSize = param.value
+          pmaxSize = Some(param.value)
           maxSizeTotalFound += 1
         case param: Workers =>
-          pworkers = param.value
+          pworkers = Some(param.value)
           workersTotalFound += 1
       }
     }
@@ -393,45 +405,44 @@ trait Configuration {
       throw new IllegalArgumentException("can pass at most one MaxDiscarded or MaxDiscardedFactor config parameters, but " + maxDiscardedAndFactorTotalFound + " were passed")
     if (minSizeTotalFound > 1)
       throw new IllegalArgumentException("can pass at most one MinSize config parameters, but " + minSizeTotalFound + " were passed")
-    if (maxSizeTotalFound > 1)
-      throw new IllegalArgumentException("can pass at most one MaxSize config parameters, but " + maxSizeTotalFound + " were passed")
+    val maxSizeAndSizeRangeTotalFound = maxSizeTotalFound + sizeRangeTotalFound
+    if (maxSizeAndSizeRangeTotalFound > 1)
+      throw new IllegalArgumentException("can pass at most one SizeRange or MaxSize config parameters, but " + maxSizeAndSizeRangeTotalFound + " were passed")
     if (workersTotalFound > 1)
       throw new IllegalArgumentException("can pass at most one Workers config parameters, but " + workersTotalFound + " were passed")
 
-    // Adding one to maxDiscarded, because I think it is easier to understand that maxDiscarded means the maximum number of times
-    // allowed that discarding will occur and the property can still pass. One more discarded evaluation than this number and the property will fail
-    // because of it. ScalaCheck fails at exactly maxDiscardedTests.
     new Parameters {
-      val minSuccessfulTests: Int = 
-        if (minSuccessful != -1) minSuccessful else config.minSuccessful
+      val minSuccessfulTests: Int = minSuccessful.getOrElse(config.minSuccessful)
 
-      val minSize: Int = 
-        if (pminSize != -1) pminSize else config.minSize
+      val minSize: Int = pminSize.getOrElse(config.minSize)
 
-      val maxSize: Int = 
-        if (pmaxSize != -1) pmaxSize else config.minSize + config.sizeRange
+      val maxSize: Int = {
+        (psizeRange, pmaxSize, config.legacyMaxSize, pminSize) match {
+          case (None, None, Some(legacyMaxSize), Some(specifiedMinSize)) =>
+            config.legacyMaxSize.get
+          case (None, Some(maxSize), _, _) =>
+            maxSize
+          case _ =>
+            psizeRange.getOrElse(config.sizeRange.value) + minSize
+        }
+      }
 
       val rng: scala.util.Random = Gen.Parameters.default.rng
 
       val workers: Int = 
-        if (pworkers != -1) pworkers else config.workers
+        pworkers.getOrElse(config.workers)
 
       val testCallback: TestCallback = new TestCallback {}
 
       val maxDiscardRatio: Float = {
-        val useDeprecatedMaxDiscardedValue = config.isInstanceOf[HasMaxDiscarded] &&
-            minSuccessfulTotalFound == 1 &&
-          maxDiscardedAndFactorTotalFound == 0
-
-        if (useDeprecatedMaxDiscardedValue) {
-          PropertyCheckConfiguration.calculateMaxDiscardedFactor(minSuccessfulTests, config.asInstanceOf[HasMaxDiscarded].maxDiscarded).toFloat
-        } else if (maxDiscardedFactor >= 0) {
-          maxDiscardedFactor.toFloat
-        } else if (maxDiscarded != -1) {
-          if (maxDiscarded < 0) Parameters.default.maxDiscardRatio
-          else PropertyCheckConfiguration.calculateMaxDiscardedFactor(minSuccessfulTests, maxDiscarded).toFloat
-        } else {
-          config.maxDiscardedFactor.toFloat
+        (maxDiscardedFactor, maxDiscarded, config.legacyMaxDiscarded, minSuccessful) match {
+          case (None, None, Some(legacyMaxDiscarded), Some(specifiedMinSuccessful)) =>
+            PropertyCheckConfiguration.calculateMaxDiscardedFactor(specifiedMinSuccessful, legacyMaxDiscarded).toFloat
+          case (None, Some(md), _, _) =>
+            if (md < 0) Parameters.default.maxDiscardRatio
+            else PropertyCheckConfiguration.calculateMaxDiscardedFactor(minSuccessfulTests, md).toFloat
+          case _ =>
+            maxDiscardedFactor.getOrElse(config.maxDiscardedFactor.value).toFloat
         }
       }
 
@@ -440,9 +451,9 @@ trait Configuration {
   }
 
   /**
-   * Implicit <code>PropertyCheckConfig</code> value providing default configuration values.
+   * Implicit <code>PropertyCheckConfiguration</code> value providing default configuration values.
    */
-  implicit val generatorDrivenConfig = PropertyCheckConfig()
+  implicit val generatorDrivenConfig = PropertyCheckConfiguration()
 }
 
 /**

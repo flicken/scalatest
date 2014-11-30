@@ -100,24 +100,33 @@ class PropertyCheckConfigurationHelperSuite extends FunSuite with Matchers {
     params.minSize should equal (DefaultMinSize.value)
   }
 
-  /* TODO Add sizeRange
   // sizeRange
   test("getParams returns passed sizeRange config param") {
-    val params = getParams(Seq(MaxSize(PassedMaxSize)), defaultConfig)
-    params.maxSize should equal (PassedMaxSize)
+    val params = getParams(Seq(SizeRange(PassedSizeRange)), defaultConfig)
+    params.maxSize should equal (DefaultMinSize + PassedSizeRange)
+  }
+
+  test("getParams returns passed minSize and sizeRange config param") {
+    val params = getParams(Seq(MinSize(PassedMinSize), SizeRange(PassedSizeRange)), defaultConfig)
+    params.maxSize should equal (PassedMinSize + PassedSizeRange)
   }
 
   test("getParams throws IAE if passed multiple maxSize config params") {
     intercept[IllegalArgumentException] {
       getParams(Seq(MaxSize(33), MaxSize(34)), defaultConfig)
     }
+    intercept[IllegalArgumentException] {
+      getParams(Seq(MaxSize(33), SizeRange(34)), defaultConfig)
+    }
+    intercept[IllegalArgumentException] {
+      getParams(Seq(SizeRange(33), SizeRange(34)), defaultConfig)
+    }
   }
 
-  test("getParams returns default maxSize config param if none passed") {
+  test("getParams returns default sizeRange config if none passed") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful)), defaultConfig)
-    params.maxSize should equal (DefaultMaxSize)
+    params.maxSize should equal (DefaultMinSize + DefaultSizeRange)
   }
-*/
 
   // workers
   test("getParams returns passed workers config param") {
@@ -147,12 +156,11 @@ class PropertyCheckConfigurationHelperSuite extends FunSuite with Matchers {
 
   test("getParams returns all passed if all config params passed") {
     val params = getParams(Seq(MinSuccessful(PassedMinSuccessful), MaxDiscardedFactor(PassedMaxDiscardedFactor), MinSize(PassedMinSize),
-      //MaxSize(PassedMaxSize),
-      Workers(PassedWorkers)), defaultConfig)
+      SizeRange(PassedSizeRange), Workers(PassedWorkers)), defaultConfig)
     params.minSuccessfulTests should equal (PassedMinSuccessful.value)
     params.maxDiscardRatio should equal (PassedMaxDiscardedFactor.value)
     params.minSize should equal (PassedMinSize.value)
-    params.maxSize should equal (DefaultMinSize.value + DefaultSizeRange.value)
+    params.maxSize should equal (PassedMinSize.value + PassedSizeRange.value)
     params.workers should equal (PassedWorkers.value)
   }
 }
