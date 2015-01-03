@@ -119,7 +119,10 @@ object Fact {
 
 import org.scalatest.Fact._
 
-case class No(
+private[scalatest] sealed trait Yes extends Fact
+private[scalatest] sealed trait No extends Fact
+
+private[scalatest] case class SimpleNo(
 	rawFailureMessage: String,
     rawNegatedFailureMessage: String,
     rawMidSentenceFailureMessage: String,
@@ -130,8 +133,8 @@ case class No(
     midSentenceNegatedFailureMessageArgs: IndexedSeq[Any],
     composite: Boolean = false,
     prettifier: Prettifier = Prettifier.default
-) extends Fact {
-	def unary_!() = Yes(
+) extends No {
+	def unary_!() = SimpleYes(
     rawNegatedFailureMessage,
     rawFailureMessage,
     rawMidSentenceNegatedFailureMessage,
@@ -145,7 +148,7 @@ case class No(
 
   def &&(rhs: => Fact) = this
   def ||(rhs: => Fact) = rhs match {
-      case yes: Yes => Yes(
+      case yes: Yes => SimpleYes(
         commaAnd(this.composite, yes.composite),
         commaAnd(this.composite, yes.composite),
         commaAnd(this.composite, yes.composite),
@@ -156,7 +159,7 @@ case class No(
         Vector(MidSentenceFailureMessage(this), MidSentenceNegatedFailureMessage(yes)),
         true
       )
-      case no:  No  =>  No(
+      case no:  No  =>  SimpleNo(
         commaAnd(this.composite, no.composite),
         commaAnd(this.composite, no.composite),
         commaAnd(this.composite, no.composite),
@@ -176,7 +179,7 @@ case class No(
  *
  * @author Bill Venners
  */
-object No {
+private[scalatest] object SimpleNo {
 
   /**
    * Factory method that constructs a new <code>No</code> with passed <code>failureMessage</code>, 
@@ -195,7 +198,7 @@ object No {
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, rawMidSentenceFailureMessage: String,
       rawMidSentenceNegatedFailureMessage: String, failureMessageArgs: IndexedSeq[Any], negatedFailureMessageArgs: IndexedSeq[Any]): No =
-    new No(
+    new SimpleNo(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawMidSentenceFailureMessage,
@@ -222,7 +225,7 @@ object No {
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, rawMidSentenceFailureMessage: String,
       rawMidSentenceNegatedFailureMessage: String): No =
-    new No(
+    new SimpleNo(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawMidSentenceFailureMessage,
@@ -247,7 +250,7 @@ object No {
    * @return a <code>No</code> instance
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String): No =
-    new No(
+    new SimpleNo(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawFailureMessage,
@@ -272,8 +275,8 @@ object No {
    * @param args arguments for error messages construction
    * @return a <code>No</code> instance
    */
-  def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, args: IndexedSeq[Any]) =
-    new No(
+  def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, args: IndexedSeq[Any]): No =
+    new SimpleNo(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawFailureMessage,
@@ -302,8 +305,8 @@ object No {
    * @param negatedFailureMessageArgs arguments for constructing message with a meaning opposite to that of the failure message
    * @return a <code>No</code> instance
    */
-  def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, failureMessageArgs: IndexedSeq[Any], negatedFailureMessageArgs: IndexedSeq[Any]) =
-    new No(
+  def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, failureMessageArgs: IndexedSeq[Any], negatedFailureMessageArgs: IndexedSeq[Any]): No =
+    new SimpleNo(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawFailureMessage,
@@ -318,7 +321,7 @@ object No {
 }
 
 
-case class Yes(
+private[scalatest] case class SimpleYes(
 	rawFailureMessage: String,
     rawNegatedFailureMessage: String,
     rawMidSentenceFailureMessage: String,
@@ -328,9 +331,9 @@ case class Yes(
     midSentenceFailureMessageArgs: IndexedSeq[Any],
     midSentenceNegatedFailureMessageArgs: IndexedSeq[Any],
     composite: Boolean = false,
-    prettifier: Prettifier = Prettifier.default) extends Fact {
+    prettifier: Prettifier = Prettifier.default) extends Yes {
 
-	def unary_!() = No(
+	def unary_!() = SimpleNo(
       rawNegatedFailureMessage,
       rawFailureMessage,
       rawMidSentenceNegatedFailureMessage,
@@ -343,7 +346,7 @@ case class Yes(
       prettifier)
 
   def &&(rhs: => Fact) = rhs match {
-      case yes: Yes => Yes(
+      case yes: Yes => SimpleYes(
         commaBut(this.composite, yes.composite),
         commaAnd(this.composite, yes.composite),
         commaBut(this.composite, yes.composite),
@@ -354,7 +357,7 @@ case class Yes(
         Vector(MidSentenceNegatedFailureMessage(this), MidSentenceNegatedFailureMessage(yes)),
         true
       )
-      case no: No  =>  No(
+      case no: No  =>  SimpleNo(
         commaBut(this.composite, no.composite),
         commaAnd(this.composite, no.composite),
         commaBut(this.composite, no.composite),
@@ -377,7 +380,7 @@ case class Yes(
  *
  * @author Bill Venners
  */
-object Yes {
+private[scalatest] object SimpleYes {
 
   /**
    * Factory method that constructs a new <code>Yes</code> with passed code>failureMessage</code>, 
@@ -396,7 +399,7 @@ object Yes {
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, rawMidSentenceFailureMessage: String,
       rawMidSentenceNegatedFailureMessage: String, failureMessageArgs: IndexedSeq[Any], negatedFailureMessageArgs: IndexedSeq[Any]): Yes =
-    new Yes(
+    new SimpleYes(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawMidSentenceFailureMessage,
@@ -423,7 +426,7 @@ object Yes {
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, rawMidSentenceFailureMessage: String,
       rawMidSentenceNegatedFailureMessage: String): Yes =
-    new Yes(
+    new SimpleYes(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawMidSentenceFailureMessage,
@@ -448,7 +451,7 @@ object Yes {
    * @return a <code>Yes</code> instance
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String): Yes =
-    new Yes(
+    new SimpleYes(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawFailureMessage,
@@ -474,7 +477,7 @@ object Yes {
    * @return a <code>Yes</code> instance
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, args: IndexedSeq[Any]) =
-    new Yes(
+    new SimpleYes(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawFailureMessage,
@@ -504,7 +507,7 @@ object Yes {
    * @return a <code>Yes</code> instance
    */
   def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, failureMessageArgs: IndexedSeq[Any], negatedFailureMessageArgs: IndexedSeq[Any]) =
-    new Yes(
+    new SimpleYes(
       rawFailureMessage,
       rawNegatedFailureMessage,
       rawFailureMessage,
