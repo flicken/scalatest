@@ -17,8 +17,10 @@ package org.scalatest
 
 import org.scalactic.Prettifier
 import java.text.MessageFormat
+import scala.collection.GenTraversable
 
 sealed abstract class Fact {
+  /*
     val rawFailureMessage: String
     val rawNegatedFailureMessage: String
     val rawMidSentenceFailureMessage: String
@@ -29,7 +31,7 @@ sealed abstract class Fact {
     val midSentenceNegatedFailureMessageArgs: IndexedSeq[Any]
     val composite: Boolean
     val prettifier: Prettifier
-
+    */
 
   /**
    * Get a negated version of this Fact, sub type will be negated and all messages field will be substituted with its counter-part.
@@ -42,55 +44,64 @@ sealed abstract class Fact {
 
     def &&(rhs: => Fact): Fact
 
-  /**
-   * Construct failure message to report if a fact fails, using <code>rawFailureMessage</code>, <code>failureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return failure message to report if a fact fails
-   */
-  def failureMessage: String = if (failureMessageArgs.isEmpty) rawFailureMessage else makeString(rawFailureMessage, failureMessageArgs)
+    override def toString: String = Fact.buildToString(this)
 
-  /**
-   * Construct message with a meaning opposite to that of the failure message, using <code>rawNegatedFailureMessage</code>, <code>negatedFailureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return message with a meaning opposite to that of the failure message
-   */
-  def negatedFailureMessage: String = if (negatedFailureMessageArgs.isEmpty) rawNegatedFailureMessage else makeString(rawNegatedFailureMessage, negatedFailureMessageArgs)
+    private[scalatest] def complexity: Int
 
-  /**
-   * Construct failure message suitable for appearing mid-sentence, using <code>rawMidSentenceFailureMessage</code>, <code>midSentenceFailureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return failure message suitable for appearing mid-sentence
-   */
-  def midSentenceFailureMessage: String = if (midSentenceFailureMessageArgs.isEmpty) rawMidSentenceFailureMessage else makeString(rawMidSentenceFailureMessage, midSentenceFailureMessageArgs)
-
-  /**
-   * Construct negated failure message suitable for appearing mid-sentence, using <code>rawMidSentenceNegatedFailureMessage</code>, <code>midSentenceNegatedFailureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return negated failure message suitable for appearing mid-sentence
-   */
-  def midSentenceNegatedFailureMessage: String = if (midSentenceNegatedFailureMessageArgs.isEmpty) rawMidSentenceNegatedFailureMessage else makeString(rawMidSentenceNegatedFailureMessage, midSentenceNegatedFailureMessageArgs)
-
-  private def makeString(rawString: String, args: IndexedSeq[Any]): String = {
-    val msgFmt = new MessageFormat(rawString)
-    msgFmt.format(args.map(prettifier).toArray)
-  }
+    private[scalatest] def isYes: Boolean
 }
 
-object Fact {
-  def commaAnd(leftComposite: Boolean, rightComposite: Boolean): String = (leftComposite,rightComposite) match {
-    case (false,false) => Resources("commaAnd")
-    case (false,true) => Resources("rightParensCommaAnd")
-    case (true,false) => Resources("leftParensCommaAnd")
-    case (true,true) => Resources("bothParensCommaAnd")
+private[scalatest] object Fact {
+  private[scalatest] def buildToString(fact: Fact): String = if (fact.complexity < 3) simpleToString(fact) else complexToString(fact)
+
+  private[scalatest] def simpleToString(fact: Fact): String = {
+    import FactOperator._
+    fact match {
+      case composite: CompositeFact =>
+        val innerText = if (composite.isYes) {
+          composite.operator match {
+            case && => MessageFormat.format(Resources("commaAnd"), simpleToString(composite.lhs), simpleToString(composite.rhs))
+            case || if composite.lhs.isYes =>
+              simpleToString(composite.lhs) // short-circuit
+            case || => MessageFormat.format(Resources("commaBut", simpleToString(composite.lhs), simpleToString(composite.rhs)))
+          }
+        } else {
+          composite.operator match {
+            case && if (!composite.lhs.isYes) =>
+              simpleToString(composite.lhs) // short-circuit
+            case && => MessageFormat.format(Resources("commaBut", simpleToString(composite.lhs), simpleToString(composite.rhs)))
+            case || => MessageFormat.format(Resources("commaAnd"), simpleToString(composite.lhs), simpleToString(composite.rhs))
+          }
+        }
+        yesOrNo(composite) + "(" + innerText + ")"
+      case negated: NegatedFact => negated.negated match {
+        case simple: SimpleFact => if (simple.isYes) simple.failureMessage else simple.negatedFailureMessage
+        case negated: NegatedFact => simpleToString(negated.negated)
+        case composite: CompositeFact => "!" + simpleToString(negated.negated) // TODO: Work in progress
+      }
+      case simple: SimpleFact =>
+        if (simple.isYes) simple.negatedFailureMessage else simple.failureMessage
+    }
   }
 
-  def commaBut(leftComposite: Boolean, rightComposite: Boolean): String = (leftComposite,rightComposite) match {
-    case (false,false) => Resources("commaBut")
-    case (false,true) => Resources("rightParensCommaBut")
-    case (true,false) => Resources("leftParensCommaBut")
-    case (true,true) => Resources("bothParensCommaBut")
+  def yesOrNo(fact: Fact) = if (fact.isYes) "Yes" else "No"
+
+  def indentation(level: Int) = "  " * level
+  def indentLines(level: Int, lines: GenTraversable[String]) =
+    lines.map(line => line.split("\n").map(indentation(level) + _).mkString("\n"))
+
+  private[scalatest] def complexToString(fact: Fact): String = {
+    fact match {
+      case composite: CompositeFact =>
+        yesOrNo(fact) + "(\n" +
+        indentLines(1, Seq(complexToString(composite.lhs), complexToString(composite.rhs))).mkString(" " + composite.operator+"\n") +
+        "\n)"
+      case negated: NegatedFact => "!" + complexToString(negated.negated)
+      case simple: SimpleFact => yesOrNo(fact) + "(" + simpleToString(fact) + ")"
+    }
   }
 
+/*
   // Idea is to override toString each time it is used.
   private[scalatest] sealed abstract class LazyMessage {
     val nestedArgs: IndexedSeq[Any]
@@ -115,12 +126,108 @@ object Fact {
     val nestedArgs: IndexedSeq[Any] = fact.negatedFailureMessageArgs
     override def toString: String = fact.midSentenceNegatedFailureMessage
   }
+  */
 }
 
 import org.scalatest.Fact._
 
-private[scalatest] sealed trait Yes extends Fact
-private[scalatest] sealed trait No extends Fact
+private[scalatest] sealed trait SimpleFact { self: Fact =>
+  def complexity = 1
+  val rawFailureMessage: String
+  val rawNegatedFailureMessage: String
+  val rawMidSentenceFailureMessage: String
+  val rawMidSentenceNegatedFailureMessage: String
+  val failureMessageArgs: IndexedSeq[Any]
+  val negatedFailureMessageArgs: IndexedSeq[Any]
+  val midSentenceFailureMessageArgs: IndexedSeq[Any]
+  val midSentenceNegatedFailureMessageArgs: IndexedSeq[Any]
+  val prettifier: Prettifier
+
+  /**
+   * Construct failure message to report if a fact fails, using <code>rawFailureMessage</code>, <code>failureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return failure message to report if a fact fails
+   */
+  def failureMessage: String = makeString(rawFailureMessage, failureMessageArgs)
+
+  /**
+   * Construct message with a meaning opposite to that of the failure message, using <code>rawNegatedFailureMessage</code>, <code>negatedFailureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return message with a meaning opposite to that of the failure message
+   */
+  def negatedFailureMessage: String = makeString(rawNegatedFailureMessage, negatedFailureMessageArgs)
+
+  /**
+   * Construct failure message suitable for appearing mid-sentence, using <code>rawMidSentenceFailureMessage</code>, <code>midSentenceFailureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return failure message suitable for appearing mid-sentence
+   */
+  def midSentenceFailureMessage: String = makeString(rawMidSentenceFailureMessage, midSentenceFailureMessageArgs)
+
+  /**
+   * Construct negated failure message suitable for appearing mid-sentence, using <code>rawMidSentenceNegatedFailureMessage</code>, <code>midSentenceNegatedFailureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return negated failure message suitable for appearing mid-sentence
+   */
+  def midSentenceNegatedFailureMessage: String = makeString(rawMidSentenceNegatedFailureMessage, midSentenceNegatedFailureMessageArgs)
+
+  private def makeString(rawString: String, args: IndexedSeq[Any]): String = {
+    if (args.isEmpty) {
+      rawString
+    } else {
+      MessageFormat.format(rawString, args.map(prettifier):_*)
+    }
+  }
+}
+
+private[scalatest] sealed trait Yes extends Fact {
+  def unary_!() = NegatedToNo(this)
+  def &&(rhs: => Fact) = rhs match {
+    case yes: Yes => CompositeYes(FactOperator.&&, this, rhs)
+    case no:  No  => CompositeNo(FactOperator.&&, this, rhs)
+  }
+  def ||(rhs: => Fact) = CompositeYes(FactOperator.||, this, rhs)
+
+  def isYes = true
+}
+
+private[scalatest] sealed trait No extends Fact {
+  def unary_!() = NegatedToYes(this)
+  def &&(rhs: => Fact) = CompositeNo(FactOperator.&&, this, rhs)
+  def ||(rhs: => Fact) = rhs match {
+    case yes: Yes => CompositeYes(FactOperator.||, this, rhs)
+    case no:  No  => CompositeNo(FactOperator.||, this, rhs)
+  }
+
+  def isYes = false
+}
+
+private[scalatest] case class NegatedToNo(negated: Yes) extends No with NegatedFact
+private[scalatest] case class NegatedToYes(negated: No) extends Yes with NegatedFact
+
+private[scalatest] sealed trait FactOperator
+private[scalatest] object FactOperator {
+  private[scalatest] case object && extends FactOperator
+  private[scalatest] case object || extends FactOperator
+}
+
+private[scalatest] trait CompositeFact { self: Fact =>
+  val operator: FactOperator
+  val lhs: Fact
+  val rhs: Fact
+
+  def complexity = lhs.complexity + rhs.complexity
+}
+
+private[scalatest] case class CompositeYes(operator: FactOperator, lhs: Fact, rhs: Fact) extends Yes with CompositeFact
+private[scalatest] case class CompositeNo(operator: FactOperator, lhs: Fact, rhs: Fact)  extends No  with CompositeFact
+
+private[scalatest] trait NegatedFact { self: Fact =>
+  val negated: Fact
+
+  def complexity = negated.complexity
+}
+
 
 private[scalatest] case class SimpleNo(
 	rawFailureMessage: String,
@@ -133,45 +240,7 @@ private[scalatest] case class SimpleNo(
     midSentenceNegatedFailureMessageArgs: IndexedSeq[Any],
     composite: Boolean = false,
     prettifier: Prettifier = Prettifier.default
-) extends No {
-	def unary_!() = SimpleYes(
-    rawNegatedFailureMessage,
-    rawFailureMessage,
-    rawMidSentenceNegatedFailureMessage,
-    rawMidSentenceFailureMessage,
-    negatedFailureMessageArgs,
-    failureMessageArgs,
-    midSentenceNegatedFailureMessageArgs,
-    midSentenceFailureMessageArgs,
-    composite,
-    prettifier)
-
-  def &&(rhs: => Fact) = this
-  def ||(rhs: => Fact) = rhs match {
-      case yes: Yes => SimpleYes(
-        commaAnd(this.composite, yes.composite),
-        commaAnd(this.composite, yes.composite),
-        commaAnd(this.composite, yes.composite),
-        commaAnd(this.composite, yes.composite),
-        Vector(FailureMessage(this), MidSentenceFailureMessage(yes)),
-        Vector(FailureMessage(this), MidSentenceNegatedFailureMessage(yes)),
-        Vector(MidSentenceFailureMessage(this), MidSentenceFailureMessage(yes)),
-        Vector(MidSentenceFailureMessage(this), MidSentenceNegatedFailureMessage(yes)),
-        true
-      )
-      case no:  No  =>  SimpleNo(
-        commaAnd(this.composite, no.composite),
-        commaAnd(this.composite, no.composite),
-        commaAnd(this.composite, no.composite),
-        commaAnd(this.composite, no.composite),
-        Vector(FailureMessage(this), MidSentenceFailureMessage(no)),
-        Vector(FailureMessage(this), MidSentenceNegatedFailureMessage(no)),
-        Vector(MidSentenceFailureMessage(this), MidSentenceFailureMessage(no)),
-        Vector(MidSentenceFailureMessage(this), MidSentenceNegatedFailureMessage(no)),
-        true
-      )
-  }
-  override def toString: String = s"No($failureMessage)"
+) extends No with SimpleFact {
 }
 
 /**
@@ -331,46 +400,7 @@ private[scalatest] case class SimpleYes(
     midSentenceFailureMessageArgs: IndexedSeq[Any],
     midSentenceNegatedFailureMessageArgs: IndexedSeq[Any],
     composite: Boolean = false,
-    prettifier: Prettifier = Prettifier.default) extends Yes {
-
-	def unary_!() = SimpleNo(
-      rawNegatedFailureMessage,
-      rawFailureMessage,
-      rawMidSentenceNegatedFailureMessage,
-      rawMidSentenceFailureMessage,
-      negatedFailureMessageArgs,
-      failureMessageArgs,
-      midSentenceNegatedFailureMessageArgs,
-      midSentenceFailureMessageArgs,
-      composite,
-      prettifier)
-
-  def &&(rhs: => Fact) = rhs match {
-      case yes: Yes => SimpleYes(
-        commaBut(this.composite, yes.composite),
-        commaAnd(this.composite, yes.composite),
-        commaBut(this.composite, yes.composite),
-        commaAnd(this.composite, yes.composite),
-        Vector(NegatedFailureMessage(this), MidSentenceFailureMessage(yes)),
-        Vector(NegatedFailureMessage(this), MidSentenceNegatedFailureMessage(yes)),
-        Vector(MidSentenceNegatedFailureMessage(this), MidSentenceFailureMessage(yes)),
-        Vector(MidSentenceNegatedFailureMessage(this), MidSentenceNegatedFailureMessage(yes)),
-        true
-      )
-      case no: No  =>  SimpleNo(
-        commaBut(this.composite, no.composite),
-        commaAnd(this.composite, no.composite),
-        commaBut(this.composite, no.composite),
-        commaAnd(this.composite, no.composite),
-        Vector(NegatedFailureMessage(this), MidSentenceFailureMessage(no)),
-        Vector(NegatedFailureMessage(this), MidSentenceNegatedFailureMessage(no)),
-        Vector(MidSentenceNegatedFailureMessage(this), MidSentenceFailureMessage(no)),
-        Vector(MidSentenceNegatedFailureMessage(this), MidSentenceNegatedFailureMessage(no)),
-        true
-      )
-  }
-
-  def ||(rhs: => Fact) = this
+    prettifier: Prettifier = Prettifier.default) extends Yes with SimpleFact {
 
   override def toString: String = s"Yes($negatedFailureMessage)"
 }
