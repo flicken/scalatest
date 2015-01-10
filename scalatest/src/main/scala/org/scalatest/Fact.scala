@@ -20,7 +20,6 @@ import java.text.MessageFormat
 import scala.collection.GenTraversable
 
 sealed abstract class Fact {
-  /*
     val rawFailureMessage: String
     val rawNegatedFailureMessage: String
     val rawMidSentenceFailureMessage: String
@@ -29,9 +28,44 @@ sealed abstract class Fact {
     val negatedFailureMessageArgs: IndexedSeq[Any]
     val midSentenceFailureMessageArgs: IndexedSeq[Any]
     val midSentenceNegatedFailureMessageArgs: IndexedSeq[Any]
-    val composite: Boolean
     val prettifier: Prettifier
-    */
+
+
+  /**
+   * Construct failure message to report if a fact fails, using <code>rawFailureMessage</code>, <code>failureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return failure message to report if a fact fails
+   */
+  def failureMessage: String = makeString(rawFailureMessage, failureMessageArgs)
+
+  /**
+   * Construct message with a meaning opposite to that of the failure message, using <code>rawNegatedFailureMessage</code>, <code>negatedFailureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return message with a meaning opposite to that of the failure message
+   */
+  def negatedFailureMessage: String = makeString(rawNegatedFailureMessage, negatedFailureMessageArgs)
+
+  /**
+   * Construct failure message suitable for appearing mid-sentence, using <code>rawMidSentenceFailureMessage</code>, <code>midSentenceFailureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return failure message suitable for appearing mid-sentence
+   */
+  def midSentenceFailureMessage: String = makeString(rawMidSentenceFailureMessage, midSentenceFailureMessageArgs)
+
+  /**
+   * Construct negated failure message suitable for appearing mid-sentence, using <code>rawMidSentenceNegatedFailureMessage</code>, <code>midSentenceNegatedFailureMessageArgs</code> and <code>prettifier</code>
+   *
+   * @return negated failure message suitable for appearing mid-sentence
+   */
+  def midSentenceNegatedFailureMessage: String = makeString(rawMidSentenceNegatedFailureMessage, midSentenceNegatedFailureMessageArgs)
+
+  private def makeString(rawString: String, args: IndexedSeq[Any]): String = {
+    if (args.isEmpty) {
+      rawString
+    } else {
+      MessageFormat.format(rawString, args.map(prettifier):_*)
+    }
+  }
 
   /**
    * Get a negated version of this Fact, sub type will be negated and all messages field will be substituted with its counter-part.
@@ -44,7 +78,9 @@ sealed abstract class Fact {
 
     def &&(rhs: => Fact): Fact
 
-    override def toString: String = Fact.buildToString(this)
+    //override def toString: String = Fact.buildToString(this)
+
+    def asString: String = Fact.buildToString(this)
 
     private[scalatest] def complexity: Int
 
@@ -75,7 +111,7 @@ private[scalatest] object Fact {
         }
         yesOrNo(composite) + "(" + innerText + ")"
       case negated: NegatedFact => negated.negated match {
-        case simple: SimpleFact => if (simple.isYes) simple.failureMessage else simple.negatedFailureMessage
+        case simple: SimpleFact => println("Here: " + negated.getClass + ", " + simple); simple.negatedFailureMessage
         case negated: NegatedFact => simpleToString(negated.negated)
         case composite: CompositeFact => "!" + simpleToString(negated.negated) // TODO: Work in progress
       }
@@ -143,41 +179,6 @@ private[scalatest] sealed trait SimpleFact { self: Fact =>
   val midSentenceNegatedFailureMessageArgs: IndexedSeq[Any]
   val prettifier: Prettifier
 
-  /**
-   * Construct failure message to report if a fact fails, using <code>rawFailureMessage</code>, <code>failureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return failure message to report if a fact fails
-   */
-  def failureMessage: String = makeString(rawFailureMessage, failureMessageArgs)
-
-  /**
-   * Construct message with a meaning opposite to that of the failure message, using <code>rawNegatedFailureMessage</code>, <code>negatedFailureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return message with a meaning opposite to that of the failure message
-   */
-  def negatedFailureMessage: String = makeString(rawNegatedFailureMessage, negatedFailureMessageArgs)
-
-  /**
-   * Construct failure message suitable for appearing mid-sentence, using <code>rawMidSentenceFailureMessage</code>, <code>midSentenceFailureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return failure message suitable for appearing mid-sentence
-   */
-  def midSentenceFailureMessage: String = makeString(rawMidSentenceFailureMessage, midSentenceFailureMessageArgs)
-
-  /**
-   * Construct negated failure message suitable for appearing mid-sentence, using <code>rawMidSentenceNegatedFailureMessage</code>, <code>midSentenceNegatedFailureMessageArgs</code> and <code>prettifier</code>
-   *
-   * @return negated failure message suitable for appearing mid-sentence
-   */
-  def midSentenceNegatedFailureMessage: String = makeString(rawMidSentenceNegatedFailureMessage, midSentenceNegatedFailureMessageArgs)
-
-  private def makeString(rawString: String, args: IndexedSeq[Any]): String = {
-    if (args.isEmpty) {
-      rawString
-    } else {
-      MessageFormat.format(rawString, args.map(prettifier):_*)
-    }
-  }
 }
 
 private[scalatest] sealed trait Yes extends Fact {
@@ -216,6 +217,17 @@ private[scalatest] trait CompositeFact { self: Fact =>
   val lhs: Fact
   val rhs: Fact
 
+  val composite: Boolean = ???
+  val failureMessageArgs: IndexedSeq[Any] = ???
+  val midSentenceFailureMessageArgs: IndexedSeq[Any] = ???
+  val midSentenceNegatedFailureMessageArgs: IndexedSeq[Any] = ???
+  val negatedFailureMessageArgs: IndexedSeq[Any] = ???
+  val prettifier: org.scalactic.Prettifier = ???
+  val rawFailureMessage: String = ???
+  val rawMidSentenceFailureMessage: String = ???
+  val rawMidSentenceNegatedFailureMessage: String = ???
+  val rawNegatedFailureMessage: String = ???
+
   def complexity = lhs.complexity + rhs.complexity
 }
 
@@ -226,6 +238,16 @@ private[scalatest] trait NegatedFact { self: Fact =>
   val negated: Fact
 
   def complexity = negated.complexity
+
+  val failureMessageArgs: IndexedSeq[Any] = negated.negatedFailureMessageArgs
+  val midSentenceFailureMessageArgs: IndexedSeq[Any] = negated.midSentenceNegatedFailureMessageArgs
+  val midSentenceNegatedFailureMessageArgs: IndexedSeq[Any] = negated.midSentenceFailureMessageArgs
+  val negatedFailureMessageArgs: IndexedSeq[Any] = negated.failureMessageArgs
+  val prettifier: org.scalactic.Prettifier = negated.prettifier
+  val rawFailureMessage: String = negated.rawNegatedFailureMessage
+  val rawMidSentenceFailureMessage: String = negated.rawMidSentenceNegatedFailureMessage
+  val rawMidSentenceNegatedFailureMessage: String = negated.rawMidSentenceFailureMessage
+  val rawNegatedFailureMessage: String = negated.rawFailureMessage
 }
 
 
@@ -238,7 +260,6 @@ private[scalatest] case class SimpleNo(
     negatedFailureMessageArgs: IndexedSeq[Any],
     midSentenceFailureMessageArgs: IndexedSeq[Any],
     midSentenceNegatedFailureMessageArgs: IndexedSeq[Any],
-    composite: Boolean = false,
     prettifier: Prettifier = Prettifier.default
 ) extends No with SimpleFact {
 }
@@ -248,7 +269,7 @@ private[scalatest] case class SimpleNo(
  *
  * @author Bill Venners
  */
-private[scalatest] object SimpleNo {
+private[scalatest] object No {
 
   /**
    * Factory method that constructs a new <code>No</code> with passed <code>failureMessage</code>, 
@@ -276,7 +297,38 @@ private[scalatest] object SimpleNo {
       negatedFailureMessageArgs,
       failureMessageArgs,
       negatedFailureMessageArgs,
-      false,
+      Prettifier.default
+    )
+
+  /**
+   * Factory method that constructs a new <code>No</code> with passed <code>failureMessage</code>,
+   * <code>negativeFailureMessage</code>, <code>midSentenceFailureMessage</code>,
+   * <code>midSentenceNegatedFailureMessage</code>, <code>failureMessageArgs</code>, and <code>negatedFailureMessageArgs</code> fields.
+   * <code>failureMessageArgs</code>, and <code>negatedFailureMessageArgs</code> will be used in place of <code>midSentenceFailureMessageArgs</code>
+   * and <code>midSentenceNegatedFailureMessageArgs</code>.
+   *
+   * @param rawFailureMessage raw failure message to report if a match fails
+   * @param rawNegatedFailureMessage raw message with a meaning opposite to that of the failure message
+   * @param rawMidSentenceFailureMessage raw failure message to report if a match fails
+   * @param rawMidSentenceNegatedFailureMessage raw message with a meaning opposite to that of the failure message
+   * @param failureMessageArgs arguments for constructing failure message to report if a match fails
+   * @param negatedFailureMessageArgs arguments for constructing message with a meaning opposite to that of the failure message
+   * @param midSentenceFailureMessageArgs arguments for constructing failure message to report if a match fails
+   * @param midSentenceNegatedFailureMessageArgs arguments for constructing message with a meaning opposite to that of the failure message
+   * @return a <code>No</code> instance
+   */
+  def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, rawMidSentenceFailureMessage: String,
+      rawMidSentenceNegatedFailureMessage: String, failureMessageArgs: IndexedSeq[Any], negatedFailureMessageArgs: IndexedSeq[Any],
+      midSentenceFailureMessageArgs: IndexedSeq[Any], midSentenceNegatedFailureMessageArgs: IndexedSeq[Any]): No =
+    new SimpleNo(
+      rawFailureMessage,
+      rawNegatedFailureMessage,
+      rawMidSentenceFailureMessage,
+      rawMidSentenceNegatedFailureMessage,
+      failureMessageArgs,
+      negatedFailureMessageArgs,
+      midSentenceFailureMessageArgs,
+      midSentenceNegatedFailureMessageArgs,
       Prettifier.default
     )
 
@@ -303,7 +355,6 @@ private[scalatest] object SimpleNo {
       Vector.empty,
       Vector.empty,
       Vector.empty,
-      false,
       Prettifier.default
     )
 
@@ -328,7 +379,6 @@ private[scalatest] object SimpleNo {
       Vector.empty,
       Vector.empty,
       Vector.empty,
-      false,
       Prettifier.default
     )
 
@@ -354,7 +404,6 @@ private[scalatest] object SimpleNo {
       args,
       args,
       args,
-      false,
       Prettifier.default
     )
 
@@ -384,7 +433,6 @@ private[scalatest] object SimpleNo {
       negatedFailureMessageArgs,
       failureMessageArgs,
       negatedFailureMessageArgs,
-      false,
       Prettifier.default
     )
 }
@@ -399,7 +447,6 @@ private[scalatest] case class SimpleYes(
     negatedFailureMessageArgs: IndexedSeq[Any],
     midSentenceFailureMessageArgs: IndexedSeq[Any],
     midSentenceNegatedFailureMessageArgs: IndexedSeq[Any],
-    composite: Boolean = false,
     prettifier: Prettifier = Prettifier.default) extends Yes with SimpleFact {
 
   override def toString: String = s"Yes($negatedFailureMessage)"
@@ -410,7 +457,7 @@ private[scalatest] case class SimpleYes(
  *
  * @author Bill Venners
  */
-private[scalatest] object SimpleYes {
+private[scalatest] object Yes {
 
   /**
    * Factory method that constructs a new <code>Yes</code> with passed code>failureMessage</code>, 
@@ -438,9 +485,42 @@ private[scalatest] object SimpleYes {
       negatedFailureMessageArgs,
       failureMessageArgs,
       negatedFailureMessageArgs,
-      false,
       Prettifier.default
     )
+
+
+  /**
+   * Factory method that constructs a new <code>Yes</code> with passed code>failureMessage</code>,
+   * <code>negativeFailureMessage</code>, <code>midSentenceFailureMessage</code>,
+   * <code>midSentenceNegatedFailureMessage</code>, <code>failureMessageArgs</code>, and <code>negatedFailureMessageArgs</code> fields.
+   * <code>failureMessageArgs</code>, and <code>negatedFailureMessageArgs</code> will be used in place of <code>midSentenceFailureMessageArgs</code>
+   * and <code>midSentenceNegatedFailureMessageArgs</code>.
+   *
+   * @param rawFailureMessage raw failure message to report if a match fails
+   * @param rawNegatedFailureMessage raw message with a meaning opposite to that of the failure message
+   * @param rawMidSentenceFailureMessage raw failure message to report if a match fails
+   * @param rawMidSentenceNegatedFailureMessage raw message with a meaning opposite to that of the failure message
+   * @param failureMessageArgs arguments for constructing failure message to report if a match fails
+   * @param negatedFailureMessageArgs arguments for constructing message with a meaning opposite to that of the failure message
+   * @param midSentenceFailureMessageArgs arguments for constructing failure message to report if a match fails
+   * @param midSentenceNegatedFailureMessageArgs arguments for constructing message with a meaning opposite to that of the failure message
+   * @return a <code>Yes</code> instance
+   */
+  def apply(rawFailureMessage: String, rawNegatedFailureMessage: String, rawMidSentenceFailureMessage: String,
+      rawMidSentenceNegatedFailureMessage: String, failureMessageArgs: IndexedSeq[Any], negatedFailureMessageArgs: IndexedSeq[Any],
+             midSentenceFailureMessageArgs: IndexedSeq[Any], midSentenceNegatedFailureMessageArgs: IndexedSeq[Any]): Yes =
+    new SimpleYes(
+      rawFailureMessage,
+      rawNegatedFailureMessage,
+      rawMidSentenceFailureMessage,
+      rawMidSentenceNegatedFailureMessage,
+      failureMessageArgs,
+      negatedFailureMessageArgs,
+      midSentenceFailureMessageArgs,
+      midSentenceNegatedFailureMessageArgs,
+      Prettifier.default
+    )
+
 
   /**
    * Factory method that constructs a new <code>Yes</code> with passed <code>rawFailureMessage</code>,
@@ -465,7 +545,6 @@ private[scalatest] object SimpleYes {
       Vector.empty,
       Vector.empty,
       Vector.empty,
-      false,
       Prettifier.default
     )
 
@@ -490,7 +569,6 @@ private[scalatest] object SimpleYes {
       Vector.empty,
       Vector.empty,
       Vector.empty,
-      false,
       Prettifier.default
     )
 
@@ -516,7 +594,6 @@ private[scalatest] object SimpleYes {
       args,
       args,
       args,
-      false,
       Prettifier.default
     )
 
@@ -546,7 +623,6 @@ private[scalatest] object SimpleYes {
       negatedFailureMessageArgs,
       failureMessageArgs,
       negatedFailureMessageArgs,
-      false,
       Prettifier.default
     )
 }
